@@ -142,18 +142,33 @@
     const move = (e) => {
         if (!isDragging) return;
         const t = e.touches;
+
+        // MOBILE / TABLET TOUCH (2 Fingers)
         if (t && t.length === 2) {
             const dist = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
             const angle = Math.atan2(t[1].pageY - t[0].pageY, t[1].pageX - t[0].pageX) * 180 / Math.PI;
+            
             state.scale *= (dist / lastDist);
             state.rotate += (angle - lastAngle);
-            lastDist = dist; lastAngle = angle;
-        } else {
-            const pageX = e.pageX || t[0].pageX;
-            const pageY = e.pageY || t[0].pageY;
-            state.x += (pageX - lastX);
-            state.y += (pageY - lastY);
-            lastX = pageX; lastY = pageY;
+            
+            lastDist = dist;
+            lastAngle = angle;
+        } 
+        // DESKTOP MOUSE (or 1 Finger Drag)
+        else {
+            const pageX = e.pageX || (t && t[0].pageX);
+            const pageY = e.pageY || (t && t[0].pageY);
+
+            // If SHIFT is held on Desktop, Rotate. Otherwise, Move.
+            if (e.shiftKey) {
+                state.rotate += (pageX - lastX) * 0.8; 
+            } else {
+                state.x += (pageX - lastX);
+                state.y += (pageY - lastY);
+            }
+            
+            lastX = pageX;
+            lastY = pageY;
         }
         update();
     };
