@@ -3,32 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Maeve Beauty Studio | Virtual Try-On</title>
+    <title>Maeve Beauty Studio | Dual Try-On</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root { --gold: #C5A059; --dark: #1a1a1a; --cream: #FDFBF7; }
         body { font-family: 'serif'; background-color: var(--cream); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
         
-        .card { background: white; width: 100%; max-width: 480px; padding: 25px 15px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); text-align: center; box-sizing: border-box; }
+        .card { background: white; width: 100%; max-width: 500px; padding: 25px 15px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); text-align: center; }
         h1 { font-size: 20px; letter-spacing: 3px; margin: 0; text-transform: uppercase; color: var(--dark); }
         .tagline { color: var(--gold); font-style: italic; font-size: 12px; margin-bottom: 20px; display: block; }
 
-        #mirror-container { position: relative; width: 100%; height: 450px; background: #f2f2f2; border-radius: 20px; overflow: hidden; border: 1px solid #eee; touch-action: none; cursor: grab; margin-bottom: 20px; }
+        #mirror-container { position: relative; width: 100%; height: 500px; background: #f2f2f2; border-radius: 20px; overflow: hidden; border: 1px solid #eee; touch-action: none; margin-bottom: 20px; }
         #user-photo { width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none; }
-        #lash-overlay { position: absolute; width: 180px; top: 0; left: 0; cursor: move; display: none; opacity: 0.95; user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); transform-origin: center; z-index: 5; pointer-events: none; }
         
-        /* BIGGER WATERMARK */
-        .watermark { position: absolute; bottom: 20px; right: 20px; width: 120px; opacity: 0.6; pointer-events: none; z-index: 10; }
+        /* Watermark */
+        .watermark { position: absolute; bottom: 20px; right: 20px; width: 120px; opacity: 0.6; pointer-events: none; z-index: 100; }
+
+        /* Lashes */
+        .lash-instance { position: absolute; width: 150px; cursor: move; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); transform-origin: center; z-index: 50; touch-action: none; }
+        .selected-lash { outline: 2px dashed var(--gold); outline-offset: 5px; }
 
         .btn-group { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-        .btn-main { background: var(--dark); color: white; flex: 1.5; padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; min-width: 120px; }
-        .btn-action { background: var(--gold); color: white; flex: 1; padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .btn-main { background: var(--dark); color: white; flex: 1.5; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .btn-action { background: var(--gold); color: white; flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .btn-danger { background: #e74c3c; color: white; flex: 0.5; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 12px; }
 
-        .style-preview-bar { display: flex; justify-content: center; gap: 15px; padding: 10px 0; border-top: 1px solid #f0f0f0; }
+        .style-preview-bar { display: flex; justify-content: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f0f0f0; }
         .style-option { cursor: pointer; text-align: center; }
-        .thumb-circle { width: 85px; height: 85px; border-radius: 12px; border: 2px solid #eee; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 5px; }
-        .thumb-circle img { width: 100%; height: auto; transform: scale(1.1); }
-        .active-style .thumb-circle { border-color: var(--gold); border-width: 3px; }
+        .thumb-circle { width: 80px; height: 80px; border-radius: 12px; border: 2px solid #eee; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 5px; }
+        .thumb-circle img { width: 90%; height: auto; }
         .style-label { font-size: 11px; color: var(--gold); font-weight: bold; }
 
         .hint-text { font-size: 10px; color: #bbb; margin-top: 15px; line-height: 1.4; }
@@ -42,45 +45,40 @@
 
     <div class="btn-group">
         <button class="btn-main" onclick="document.getElementById('fileIn').click()">UPLOAD PHOTO</button>
-        <button class="btn-action" onclick="flipLash()">FLIP ↔</button>
+        <button class="btn-action" onclick="flipSelected()">FLIP ↔</button>
+        <button class="btn-danger" onclick="deleteSelected()">🗑</button>
         <button class="btn-action" onclick="savePhoto()">SAVE</button>
     </div>
     <input type="file" id="fileIn" hidden accept="image/*" onchange="handleFile(this)">
 
-    <div id="mirror-container">
-        <div id="msg" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#aaa;">Waiting for photo...</div>
+    <div id="mirror-container" onmousedown="deselect(event)" ontouchstart="deselect(event)">
+        <div id="msg" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#aaa;">Upload photo, then tap styles to add lashes</div>
         <img id="user-photo">
-        <img id="lash-overlay">
         <img src="Maeve-2.png" class="watermark">
     </div>
 
-    <p style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">CHOOSE STYLE</p>
+    <p style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">ADD LASHES (TAP TO ADD)</p>
     <div class="style-preview-bar">
-        <div class="style-option" onclick="setLash('cloud.png', this)">
+        <div class="style-option" onclick="addLash('cloud.png')">
             <div class="thumb-circle"><img src="cloud.png"></div>
             <div class="style-label">云端式</div>
         </div>
-        <div class="style-option" onclick="setLash('fox style.png', this)">
+        <div class="style-option" onclick="addLash('fox style.png')">
             <div class="thumb-circle"><img src="fox style.png"></div>
-            <div class="style-label">毛绒狐系</div>
+            <div class="style-label">毛绒狐系漫画</div>
         </div>
-        <div class="style-option" onclick="setLash('comiclash.png', this)">
+        <div class="style-option" onclick="addLash('comiclash.png')">
             <div class="thumb-circle"><img src="comiclash.png"></div>
             <div class="style-label">漫画款</div>
         </div>
     </div>
 
-    <div class="hint-text">Move: 1 finger/Drag • Zoom: Pinch/Scroll • Rotate: 2 fingers/Shift+Drag</div>
+    <div class="hint-text">Tap a lash to select it. Drag to move. Pinch to zoom/rotate.</div>
 </div>
 
 <script>
-    const lash = document.getElementById('lash-overlay');
     const container = document.getElementById('mirror-container');
-    
-    // state.flip keeps track of whether the image is mirrored (1 or -1)
-    let state = { x: 50, y: 150, scale: 1, rotate: 0, flip: 1 };
-    let isDragging = false;
-    let lastX, lastY, lastDist, lastAngle;
+    let selectedLash = null;
 
     function handleFile(input) {
         if (input.files && input.files[0]) {
@@ -95,44 +93,67 @@
         }
     }
 
-    function setLash(fileName, element) {
-        lash.src = fileName;
-        lash.style.display = 'block';
-        document.querySelectorAll('.style-option').forEach(opt => opt.classList.remove('active-style'));
-        element.classList.add('active-style');
+    function addLash(src) {
+        const img = document.createElement('img');
+        img.src = src;
+        img.className = 'lash-instance';
+        img.style.left = '50px';
+        img.style.top = '150px';
+        
+        // Custom data for each lash
+        img.dataset.x = 50;
+        img.dataset.y = 150;
+        img.dataset.scale = 1;
+        img.dataset.rotate = 0;
+        img.dataset.flip = 1;
+
+        img.addEventListener('mousedown', startInteraction);
+        img.addEventListener('touchstart', startInteraction, {passive: false});
+        
+        container.appendChild(img);
+        selectLash(img);
     }
 
-    // NEW FLIP FUNCTION
-    function flipLash() {
-        state.flip *= -1; // Changes between 1 and -1
-        update();
+    function selectLash(el) {
+        if (selectedLash) selectedLash.classList.remove('selected-lash');
+        selectedLash = el;
+        selectedLash.classList.add('selected-lash');
     }
 
-    function update() {
-        // We use scaleX to flip the image horizontally
-        lash.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale * state.flip}, ${state.scale}) rotate(${state.rotate * state.flip}deg)`;
-    }
-
-    function savePhoto() {
-        if (!document.getElementById('user-photo').src) {
-            alert("Please upload a photo first!");
-            return;
+    function deselect(e) {
+        if (e.target === container || e.target === document.getElementById('user-photo')) {
+            if (selectedLash) selectedLash.classList.remove('selected-lash');
+            selectedLash = null;
         }
-        const btn = document.querySelector('.btn-action:last-child');
-        btn.innerText = "Wait...";
-        html2canvas(container, { useCORS: true, allowTaint: true }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'Maeve-Studio-Look.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            btn.innerText = "SAVE";
-        });
     }
 
-    // --- INTERACTION LOGIC ---
-    const start = (e) => {
-        if (lash.style.display === 'none') return;
+    function flipSelected() {
+        if (!selectedLash) return;
+        selectedLash.dataset.flip *= -1;
+        updateTransform(selectedLash);
+    }
+
+    function deleteSelected() {
+        if (selectedLash) {
+            selectedLash.remove();
+            selectedLash = null;
+        }
+    }
+
+    function updateTransform(el) {
+        const d = el.dataset;
+        el.style.transform = `translate(${d.x}px, ${d.y}px) scale(${d.scale * d.flip}, ${d.scale}) rotate(${d.rotate * d.flip}deg)`;
+    }
+
+    // INTERACTION LOGIC
+    let isDragging = false;
+    let lastX, lastY, lastDist, lastAngle;
+
+    function startInteraction(e) {
+        e.stopPropagation();
+        selectLash(this);
         isDragging = true;
+        
         const t = e.touches;
         if (t && t.length === 2) {
             lastDist = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
@@ -143,45 +164,49 @@
             lastX = pageX;
             lastY = pageY;
         }
-    };
+    }
 
-    const move = (e) => {
-        if (!isDragging) return;
+    window.addEventListener('mousemove', moveInteraction);
+    window.addEventListener('touchmove', moveInteraction, {passive: false});
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('touchend', () => isDragging = false);
+
+    function moveInteraction(e) {
+        if (!isDragging || !selectedLash) return;
         const t = e.touches;
+        const d = selectedLash.dataset;
+
         if (t && t.length === 2) {
+            e.preventDefault();
             const dist = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
             const angle = Math.atan2(t[1].pageY - t[0].pageY, t[1].pageX - t[0].pageX) * 180 / Math.PI;
-            state.scale *= (dist / lastDist);
-            state.rotate += (angle - lastAngle);
+            d.scale = parseFloat(d.scale) * (dist / lastDist);
+            d.rotate = parseFloat(d.rotate) + (angle - lastAngle);
             lastDist = dist; lastAngle = angle;
         } else {
             const pageX = e.pageX || (t && t[0].pageX);
             const pageY = e.pageY || (t && t[0].pageY);
+            
             if (e.shiftKey) {
-                state.rotate += (pageX - lastX) * 0.8; 
+                d.rotate = parseFloat(d.rotate) + (pageX - lastX) * 0.8;
             } else {
-                state.x += (pageX - lastX);
-                state.y += (pageY - lastY);
+                d.x = parseFloat(d.x) + (pageX - lastX);
+                d.y = parseFloat(d.y) + (pageY - lastY);
             }
             lastX = pageX; lastY = pageY;
         }
-        update();
-    };
+        updateTransform(selectedLash);
+    }
 
-    const stop = () => { isDragging = false; };
-    container.addEventListener('mousedown', start);
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', stop);
-    container.addEventListener('touchstart', start, {passive: false});
-    container.addEventListener('touchmove', (e) => { e.preventDefault(); move(e); }, {passive: false});
-    container.addEventListener('touchend', stop);
-    container.addEventListener('wheel', e => {
-        if (lash.style.display === 'none') return;
-        e.preventDefault();
-        state.scale *= (e.deltaY > 0 ? 0.9 : 1.1);
-        update();
-    }, { passive: false });
-    container.oncontextmenu = (e) => e.preventDefault();
+    function savePhoto() {
+        if (selectedLash) selectedLash.classList.remove('selected-lash');
+        html2canvas(container, { useCORS: true, allowTaint: true }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'Maeve-Studio-Look.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    }
 </script>
 
 </body>
