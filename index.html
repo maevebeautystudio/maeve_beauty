@@ -16,10 +16,8 @@
         #mirror-container { position: relative; width: 100%; height: 500px; background: #f2f2f2; border-radius: 20px; overflow: hidden; border: 1px solid #eee; touch-action: none; margin-bottom: 20px; }
         #user-photo { width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none; }
         
-        /* Watermark */
         .watermark { position: absolute; bottom: 20px; right: 20px; width: 120px; opacity: 0.6; pointer-events: none; z-index: 100; }
 
-        /* Lashes */
         .lash-instance { position: absolute; width: 150px; cursor: move; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); transform-origin: center; z-index: 50; touch-action: none; }
         .selected-lash { outline: 2px dashed var(--gold); outline-offset: 5px; }
 
@@ -73,7 +71,7 @@
         </div>
     </div>
 
-    <div class="hint-text">Tap a lash to select it. Drag to move. Pinch to zoom/rotate.</div>
+    <div class="hint-text">Scroll to Zoom • Shift+Drag to Rotate • Pinch on Mobile</div>
 </div>
 
 <script>
@@ -97,10 +95,9 @@
         const img = document.createElement('img');
         img.src = src;
         img.className = 'lash-instance';
-        img.style.left = '50px';
-        img.style.top = '150px';
+        img.style.left = '0px';
+        img.style.top = '0px';
         
-        // Custom data for each lash
         img.dataset.x = 50;
         img.dataset.y = 150;
         img.dataset.scale = 1;
@@ -112,6 +109,7 @@
         
         container.appendChild(img);
         selectLash(img);
+        updateTransform(img);
     }
 
     function selectLash(el) {
@@ -145,7 +143,6 @@
         el.style.transform = `translate(${d.x}px, ${d.y}px) scale(${d.scale * d.flip}, ${d.scale}) rotate(${d.rotate * d.flip}deg)`;
     }
 
-    // INTERACTION LOGIC
     let isDragging = false;
     let lastX, lastY, lastDist, lastAngle;
 
@@ -153,7 +150,6 @@
         e.stopPropagation();
         selectLash(this);
         isDragging = true;
-        
         const t = e.touches;
         if (t && t.length === 2) {
             lastDist = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
@@ -186,7 +182,6 @@
         } else {
             const pageX = e.pageX || (t && t[0].pageX);
             const pageY = e.pageY || (t && t[0].pageY);
-            
             if (e.shiftKey) {
                 d.rotate = parseFloat(d.rotate) + (pageX - lastX) * 0.8;
             } else {
@@ -197,6 +192,15 @@
         }
         updateTransform(selectedLash);
     }
+
+    // SCROLL TO ZOOM (ADDED BACK)
+    container.addEventListener('wheel', e => {
+        if (!selectedLash) return;
+        e.preventDefault();
+        const d = selectedLash.dataset;
+        d.scale = parseFloat(d.scale) * (e.deltaY > 0 ? 0.9 : 1.1);
+        updateTransform(selectedLash);
+    }, { passive: false });
 
     function savePhoto() {
         if (selectedLash) selectedLash.classList.remove('selected-lash');
